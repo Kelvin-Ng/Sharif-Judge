@@ -272,7 +272,7 @@ WARNING_OPTION="-w"
 if [ "$EXT" = "c" ] || [ "$EXT" = "cpp" ]; then
 	COMPILER="gcc"
 	if [ "$EXT" = "cpp" ]; then
-		COMPILER="/usr/bin/g++"
+		COMPILER="g++"
 	fi
 	EXEFILE="s_$(echo $FILENAME | sed 's/[^a-zA-Z0-9]//g')" # Name of executable file
 	cd $JAIL
