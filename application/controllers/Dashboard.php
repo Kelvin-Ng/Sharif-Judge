@@ -61,8 +61,13 @@ class Dashboard extends CI_Controller
 			$path = $this->settings_model->get_setting('tester_path');
 			if ( ! file_exists($path))
 				array_push($data['errors'], 'The path to folder "tester" is not set correctly. Move this folder somewhere not publicly accessible, and set its full path in Settings.');
-			elseif ( ! is_writable($path))
-				array_push($data['errors'], 'The folder <code>"'.$path.'"</code> is not writable by PHP. Make it writable. But make sure that this folder is only accessible by you.');
+
+			// file_exists() cannot correctly determine
+			//$path = $this->settings_model->get_setting('chroot_path');
+			//if ( ! file_exists($path))
+			//	array_push($data['errors'], 'The path to the chroot environment is not set correctly. Move this folder somewhere not publicly accessible, and set its full path in Settings.');
+			//elseif ( ! is_writable($path))
+			//	array_push($data['errors'], 'The folder <code>"'.$path.'"</code> is not writable by PHP. Make it own by the user running the webserver (eg. http). But make sure that the permission of this folder is 755.');
 		}
 
 		$this->load->view('templates/header', $data);

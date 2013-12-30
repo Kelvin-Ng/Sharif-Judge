@@ -156,6 +156,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 				Enable <a href="http://docs.sharifjudge.ir/sandboxing#java_sandboxing" target="_blank">Java Sandboxing</a>
 			</p>
 
+			<p class="input_p">
+				<input id="form_chroot_path" type="text" name="chroot_path" value="<?php echo $chroot_path ?>"/>
+				<label for="form_chroot_path">Chroot Path</label>
+			</p>
+			<p class="form_comment">
+				Chroot path to run untrusted code. Should be a full path
+			</p>
+
+			<p class="input_p">
+				<input id="form_run_as_uid" type="text" name="run_as_uid" value="<?php echo $run_as_uid ?>"/>
+				<label for="form_run_as_uid">Run untrusted code with UID</label>
+			</p>
+			<p class="form_comment">
+				Should be a UID of non-zero and not equal to the UID running the webserver (eg. http)
+			</p>
+
 
 
 			<h2 class="shj_form">Shield <span class="title_menu_item"><a href="http://docs.sharifjudge.ir/shield" target="_blank"><i class="splashy-help"></i> Help</a></span></h2>

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This file runs a command with given limits
-# usage: ./runcode.sh extension memorylimit timelimit timelimit_int input_file command
+# usage: ./runcode.sh extension memorylimit timelimit timelimit_int input_file chroot_jail command
 
 EXT=$1
 shift
@@ -18,8 +18,16 @@ shift
 IN=$1
 shift
 
+CHROOT_JAIL=$1
+shift
+
 # The Command:
 CMD=$@
+
+cd $CHROOT_JAIL
+
+# Since we are using fakechroot, LD_PRELOAD is set to a shared library which allow chrooting without root privilege, we have to unset it to prevent the jail from being breaked.
+LD_PRELOAD=''
 
 # detecting existence of timeout
 TIMEOUT_EXISTS=true
@@ -35,13 +43,13 @@ fi
 # Imposing time limit with ulimit
 ulimit -t $TIMELIMITINT
 
-if $TIMEOUT_EXISTS; then
+#if $TIMEOUT_EXISTS; then
 	# Run the command with REAL time limit of TIMELIMITINT*2
-	timeout -s9 $((TIMELIMITINT*2)) $CMD <$IN >out 2>err
-else
+#	timeout -s9 $((TIMELIMITINT*2)) $CMD <$IN >out 2>err
+#else
 	# Run the command
 	$CMD <$IN >out 2>err	
-fi
+#fi
 # You can run submitted codes as another user:
 #
 # if $TIMEOUT_EXISTS; then

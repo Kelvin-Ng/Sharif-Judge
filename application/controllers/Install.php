@@ -220,6 +220,8 @@ class Install extends CI_Controller
 				array('shj_key' => 'enable_py2_shield',      'shj_value' => '1'),
 				array('shj_key' => 'enable_py3_shield',      'shj_value' => '1'),
 				array('shj_key' => 'enable_java_policy',     'shj_value' => '1'),
+				array('shj_key' => 'run_as_uid',             'shj_value' => '1000'),
+				array('shj_key' => 'chroot_path',            'shj_value' => ''),
 				array('shj_key' => 'enable_log',             'shj_value' => '1'),
 				array('shj_key' => 'submit_penalty',         'shj_value' => '300'),
 				array('shj_key' => 'enable_registration',    'shj_value' => '0'),

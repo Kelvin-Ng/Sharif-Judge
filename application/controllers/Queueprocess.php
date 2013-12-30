@@ -45,6 +45,9 @@ class Queueprocess extends CI_Controller
 
 		$this->settings_model->set_setting('queue_is_working', '1');
 
+		$run_as_uid = $this->settings_model->get_setting('run_as_uid');
+		$chroot_path = $this->settings_model->get_setting('chroot_path');
+
 
 		do { // loop over queue items
 
@@ -95,7 +98,7 @@ class Queueprocess extends CI_Controller
 			$diff_arg = $problem['diff_arg'];
 			$output_size_limit = $this->settings_model->get_setting('output_size_limit') * 1024;
 
-			$cmd = "cd $tester_path;\n./tester.sh $problemdir ".escapeshellarg($username).' '.escapeshellarg($main_filename).' '.escapeshellarg($raw_filename)." $file_type $time_limit $time_limit_int $memory_limit $output_size_limit $diff_cmd $diff_arg $op1 $op2 $op3 $op4 $op5";
+			$cmd = "cd $tester_path;\n./tester.sh $problemdir ".escapeshellarg($username).' '.escapeshellarg($main_filename).' '.escapeshellarg($raw_filename)." $file_type $time_limit $time_limit_int $memory_limit $output_size_limit $diff_cmd $diff_arg $op1 $op2 $op3 $op4 $op5 $run_as_uid $chroot_path";
 
 			file_put_contents($userdir.'/log', $cmd);
 
@@ -107,7 +110,7 @@ class Queueprocess extends CI_Controller
 
 
 			// Deleting the jail folder, if still exists
-			shell_exec("cd $tester_path; rm -rf jail*");
+			shell_exec("cd $chroot_path/shj_jail; rm -rf jail*");
 
 			// Saving judge result
 			if ( is_numeric($output) || $output === 'Compilation Error' || $output === 'Syntax Error' )
