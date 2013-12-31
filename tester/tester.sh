@@ -27,6 +27,7 @@
 # /home/mohammad/judge/homeworks/hw6/p1/out/ {output1.txt, output2.txt, ...}
 # The code will be run with uid 1000 in chroot environment
 # The chroot jail is located as /shj_chroot
+# If the second last parameter is 0, chroot is not used
 
 
 ####################### Output #######################
@@ -97,8 +98,16 @@ fi
 
 # run as this uid
 RUN_UID=${17}
-# chroot to this path
-CHROOT_PATH=${18}
+# enable/disable chroot
+if [ $RUN_UID = "0" ]; then
+	CHROOT_ON=false
+else
+	CHROOT_ON=true
+	# chroot to this path
+	CHROOT_PATH=${18}
+fi
+
+export PATH=$PATH	# Just don't understand why this is needed, at least on my computer... -- Kelvin Ng
 
 # DIFFOPTION can also be "ignore" or "exact".
 # ignore: In this case, before diff command, all newlines and whitespaces will be removed from both files
@@ -142,11 +151,22 @@ fi
 
 TST="$(ls $PROBLEMPATH/in | wc -l)"  # Number of Test Cases
 
-CHROOT_JAIL="/shj_jail/jail-$RANDOM"
-JAIL="${CHROOT_PATH}${CHROOT_JAIL}"
-if ! mkdir $JAIL; then
-	shj_log "Error: Folder '${CHROOT_PATH}/shj_jail' is not writable! Exiting..."
-	shj_finish "Judge Error"
+TESTER_PATH=$PWD
+
+if $CHROOT_ON; then
+	CHROOT_JAIL="/shj_jail/jail-$RANDOM"
+	JAIL="${CHROOT_PATH}${CHROOT_JAIL}"
+	if ! mkdir $JAIL; then
+		shj_log "Error: Folder '${CHROOT_PATH}/shj_jail' is not writable! Exiting..."
+		shj_finish "Judge Error"
+	fi
+else
+	JAIL="$TESTER_PATH/jail-$RANDOM"
+	CHROOT_JAIL=$JAIL	# for later code simplification
+	if ! mkdir $JAIL; then
+		shj_log "Error: Folder 'tester' is not writable! Exiting..."
+		shj_finish "Judge Error"
+	fi
 fi
 cp ./timeout $JAIL/timeout
 chmod +x $JAIL/timeout
@@ -154,13 +174,19 @@ chmod +x $JAIL/timeout
 cp ./runcode.sh $JAIL/runcode.sh
 chmod +x $JAIL/runcode.sh
 
-TESTER_PATH=$PWD
-
 shj_log "$(date)"
 shj_log "Language: $EXT"
 shj_log "Time Limit: $TIMELIMIT s"
 shj_log "Memory Limit: $MEMLIMIT kB"
 shj_log "Output size limit: $OUTLIMIT bytes"
+if [[ $EXT = "c" || $EXT = "cpp" ]]; then
+	shj_log "EasySandbox: $SANDBOX_ON"
+	shj_log "C/C++ Shield: $C_SHIELD_ON"
+elif [[ $EXT = "py2" || $EXT = "py3" ]]; then
+	shj_log "Python Shield: $PY_SHIELD_ON"
+elif [[ $EXT = "java" ]]; then
+	shj_log "JAVA_POLICY: \"$JAVA_POLICY\""
+fi
 
 
 
@@ -220,6 +246,11 @@ if [ "$EXT" = "py2" ]; then
 		rm -r $JAIL >/dev/null 2>/dev/null
 		shj_finish "Syntax Error"
 	fi
+	if $PY_SHIELD_ON; then
+		shj_log "Enabling Shield For Python 2"
+		# adding shield to beginning of code:
+		cat $TESTER_PATH/shield/shield_py2.py | cat - $FILENAME.py > thetemp && mv thetemp $FILENAME.py
+	fi
 fi
 
 
@@ -247,6 +278,11 @@ if [ "$EXT" = "py3" ]; then
 		cd ..
 		rm -r $JAIL >/dev/null 2>/dev/null
 		shj_finish "Syntax Error"
+	fi
+	if $PY_SHIELD_ON; then
+		shj_log "Enabling Shield For Python 3"
+		# adding shield to beginning of code:
+		cat $TESTER_PATH/shield/shield_py3.py | cat - $FILENAME.py > thetemp && mv thetemp $FILENAME.py
 	fi
 fi
 
@@ -278,9 +314,34 @@ if [ "$EXT" = "c" ] || [ "$EXT" = "cpp" ]; then
 	cd $JAIL
 	cp $PROBLEMPATH/$UN/$FILENAME.$EXT code.c
 	shj_log "Compiling as $EXT"
-	mv code.c code.$EXT
-	$COMPILER code.$EXT $OPTIONS $WARNING_OPTION -o $EXEFILE >/dev/null 2>cerr
-	EXITCODE=$?
+	if $SANDBOX_ON; then
+		shj_log "Enabling EasySandbox"
+		if cp $TESTER_PATH/easysandbox/EasySandbox.so EasySandbox.so; then
+			chmod +x EasySandbox.so
+		else
+			shj_log 'EasySandbox is not built. Disabling EasySandbox...'
+			SANDBOX_ON=false
+		fi
+	fi
+	if $C_SHIELD_ON; then
+		shj_log "Enabling Shield For C/C++"
+		# if code contains any 'undef', raise compile error:
+		if tr -d ' \t\n\r\f' < code.c | grep -q '#undef'; then
+			echo 'code.c:#undef is not allowed' >cerr
+			EXITCODE=110
+		else
+			cp $TESTER_PATH/shield/shield.$EXT shield.$EXT
+			cp $TESTER_PATH/shield/def$EXT.h def.h
+			# adding define to beginning of code:
+			echo '#define main themainmainfunction' | cat - code.c > thetemp && mv thetemp code.c
+			$COMPILER shield.$EXT $OPTIONS $WARNING_OPTION -o $EXEFILE >/dev/null 2>cerr
+			EXITCODE=$?
+		fi
+	else
+		mv code.c code.$EXT
+		$COMPILER code.$EXT $OPTIONS $WARNING_OPTION -o $EXEFILE >/dev/null 2>cerr
+		EXITCODE=$?
+	fi
 	COMPILE_END_TIME=$(($(date +%s%N)/1000000));
 	shj_log "Compiled. Exit Code=$EXITCODE  Execution Time: $((COMPILE_END_TIME-COMPILE_BEGIN_TIME)) ms"
 	if [ $EXITCODE -ne 0 ]; then
@@ -288,17 +349,37 @@ if [ "$EXT" = "c" ] || [ "$EXT" = "cpp" ]; then
 		shj_log "$(cat cerr | head -10)"
 		echo '<span class="shj_b">Compile Error<br>Error Messages: (line numbers are not correct)</span>' >$PROBLEMPATH/$UN/result.html
 		echo '<span class="shj_r">' >> $PROBLEMPATH/$UN/result.html
-		echo -e "\n" >> cerr
-		echo "" > cerr2
-		while read line; do
-			if [ "`echo $line|cut -d: -f1`" = "code.c" ]; then
-				echo ${line#code.c:} >>cerr2
-			fi
-		done <cerr
-		(cat cerr2 | head -10 | sed 's/themainmainfunction/main/g' ) > cerr;
-		(cat cerr | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g') >> $PROBLEMPATH/$UN/result.html
+		SHIELD_ACT=false
+		if $C_SHIELD_ON; then
+			while read line; do
+				if [ "`echo $line|cut -d" " -f1`" = "#define" ]; then
+					if grep -wq $(echo $line|cut -d" " -f3) cerr; then
+						echo `echo $line|cut -d"/" -f3` >> $PROBLEMPATH/$UN/result.html
+						SHIELD_ACT=true
+						break
+					fi
+				fi
+			done <def.h
+		fi
+		if ! $SHIELD_ACT; then
+			echo -e "\n" >> cerr
+			echo "" > cerr2
+			while read line; do
+				if [ "`echo $line|cut -d: -f1`" = "code.c" ]; then
+					echo ${line#code.c:} >>cerr2
+				fi
+				if [ "`echo $line|cut -d: -f1`" = "shield.c" ]; then
+					echo ${line#shield.c:} >>cerr2
+				fi
+				if [ "`echo $line|cut -d: -f1`" = "shield.cpp" ]; then
+					echo ${line#shield.cpp:} >>cerr2
+				fi
+			done <cerr
+			(cat cerr2 | head -10 | sed 's/themainmainfunction/main/g' ) > cerr;
+			(cat cerr | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g') >> $PROBLEMPATH/$UN/result.html
+		fi
 		echo "</span>" >> $PROBLEMPATH/$UN/result.html
-		cd ..
+		cd $TESTER_PATH
 		rm -r $JAIL >/dev/null 2>/dev/null
 		shj_finish "Compilation Error"
 	fi
@@ -318,7 +399,11 @@ echo "" >$PROBLEMPATH/$UN/result.html
 
 PASSEDTESTS=0
 
-CHROOT="$TESTER_PATH/setuid_run_cmd $RUN_UID fakechroot chroot $CHROOT_PATH "
+if $CHROOT_ON; then
+	CHROOT="sudo chroot --userspec=$RUN_UID $CHROOT_PATH"
+else
+	CHROOT=""
+fi
 
 
 if [ -f "$PROBLEMPATH/tester.cpp" ] && [ ! -f "$PROBLEMPATH/tester.executable" ]; then
@@ -349,19 +434,24 @@ for((i=1;i<=TST;i++)); do
 	shj_log "\n=== TEST $i ==="
 	echo "<span class=\"shj_b\">Test $i</span>" >>$PROBLEMPATH/$UN/result.html
 	
-	touch err
+	if $CHROOT_ON; then
+		cp $PROBLEMPATH/in/input$i.txt ./input$i.txt
+		touch out
+		chmod 777 out
+		touch err
+		chmod 777 err
 
-	cp $PROBLEMPATH/in/input$i.txt ./input$i.txt
-	echo > out
-	chmod 777 out
-	echo > err
-	chmod 777 err
+		INPUT_PATH="./input$i.txt"
+	else
+		INPUT_PATH="$PROBLEMPATH/in/input$i.txt"
+	fi
 	
+	# When chroot is off, $CHROOT $CHROOT_JAIL/runcode.sh... == $JAIL/runcode.sh as $CHROOT == "" and $CHROOT_JAIL == $JAIL
 	if [ "$EXT" = "java" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
 		fi
 		EXITCODE=$?
 		if grep -iq "Too small initial heap" out || grep -iq "java.lang.OutOfMemoryError" err; then
@@ -386,28 +476,39 @@ for((i=1;i<=TST;i++)); do
 		fi
 	elif [ "$EXT" = "c" ] || [ "$EXT" = "cpp" ]; then
 		#$TIMEOUT ./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
-		#./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
-		if $PERL_EXISTS; then
-			shj_log "$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL \"./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE\""
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
+		if $SANDBOX_ON; then
+			#LD_PRELOAD=./EasySandbox.so ./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
+			if $PERL_EXISTS; then
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill --sandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
+			else
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "LD_PRELOAD=./EasySandbox.so ./$EXEFILE"
+			fi
+			EXITCODE=$?
+			# remove <<entering SECCOMP mode>> from beginning of output:
+			tail -n +2 out >thetemp && mv thetemp out
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "./$EXEFILE"
+			./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
+			if $PERL_EXISTS; then
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
+			else
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./$EXEFILE"
+			fi
+			EXITCODE=$?
 		fi
-		EXITCODE=$?
 
 	elif [ "$EXT" = "py2" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python -O $FILENAME.py"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "python -O $FILENAME.py"
 		fi
 		EXITCODE=$?
 
 	elif [ "$EXT" = "py3" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python3 -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python3 -O $FILENAME.py"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT ./input$i.txt $CHROOT_JAIL "python3 -O $FILENAME.py"
+		       $CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "python3 -O $FILENAME.py" 2> '/home/user/Website/sharifjudge/Sharif-Judge-public/test_write_file/err'
 		fi
 		EXITCODE=$?
 

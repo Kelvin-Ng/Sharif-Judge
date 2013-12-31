@@ -117,6 +117,7 @@ class Settings extends CI_Controller
 					'enable_py2_shield' => $this->input->post('enable_py2_shield')===NULL?0:1,
 					'enable_py3_shield' => $this->input->post('enable_py3_shield')===NULL?0:1,
 					'enable_java_policy' => $this->input->post('enable_java_policy')===NULL?0:1,
+					'enable_chroot' => $this->input->post('enable_chroot')===NULL?0:1,
 					'run_as_uid' => $this->input->post('run_as_uid'),
 					'chroot_path' => $this->input->post('chroot_path'),
 					'enable_log' => $this->input->post('enable_log')===NULL?0:1,

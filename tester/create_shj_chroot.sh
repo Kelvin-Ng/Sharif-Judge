@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: ./create_min_chroot.sh -d <chroot_dir> [-h] [-l <lang_list eg. python,java>]
+# Usage: ./create_shj_chroot.sh -d <chroot_dir> [-h] [-l <lang_list eg. python,java>]
 
 # You may have to modify this script to suit your environment
 # You must install jailkit first

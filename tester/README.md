@@ -1,4 +1,4 @@
-# How tester works
+# How chroot tester works
 
 ## System requirement
 
@@ -18,11 +18,8 @@
 	* chroot\_dir and its all parent dir must be owned by root
 	* lang\_list can be found in jk\_init.ini
 2. Create a blank directory `shj_jail` at the root of chroot environment
-3. Set owner of `jail` be the user running php (usually http or nobody) `# chown http:http /path/to/chroot/jail`
-4. Set owner of `setuid_run_cmd` be root:root `# chown root:root setuid_run_cmd`
-5. Make `setuid_run_cmd` be a `setuid` program `# chmod +s setuid_run_cmd`
-
-_Procedure 4 and 5 should not be reversed. Otherwise, you have to do procedure 5 again_
+3. Set owner of `shj_jail` be the user running webserver (usually http or nobody) `# chown http:http /path/to/chroot/shj_jail`
+4. Run sudo visudo and add this line at the end of sudoers file: `<user_running_webserver> ALL=(ALL) NOPASSWD: ALL`
 
 These procedures will be included in a auto-install script later
 

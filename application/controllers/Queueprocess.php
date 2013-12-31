@@ -45,8 +45,14 @@ class Queueprocess extends CI_Controller
 
 		$this->settings_model->set_setting('queue_is_working', '1');
 
-		$run_as_uid = $this->settings_model->get_setting('run_as_uid');
-		$chroot_path = $this->settings_model->get_setting('chroot_path');
+		$enable_chroot = $this->settings_model->get_setting('enable_chroot');
+		if ($enable_chroot)
+		{
+			$run_as_uid = $this->settings_model->get_setting('run_as_uid');
+			$chroot_path = $this->settings_model->get_setting('chroot_path');
+		}
+		else
+			$run_as_uid = 0;	// indicate not using chroot
 
 
 		do { // loop over queue items
@@ -110,7 +116,10 @@ class Queueprocess extends CI_Controller
 
 
 			// Deleting the jail folder, if still exists
-			shell_exec("cd $chroot_path/shj_jail; rm -rf jail*");
+			if ($enable_chroot)
+				shell_exec("cd $chroot_path/shj_jail; rm -rf jail*");
+			else
+				shell_exec("cd $tester_path; rm -rf jail*");
 
 			// Saving judge result
 			if ( is_numeric($output) || $output === 'Compilation Error' || $output === 'Syntax Error' )
