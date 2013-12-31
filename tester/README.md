@@ -13,12 +13,12 @@
 	* Usage: `./create_min_chroot.sh -d <chroot_dir> [-h] [-l <lang_list eg. python,java>]`
 		* -d the path to the chroot
 		* -h use hardlink instead of copying files to chroot
-	* You may have to modify this script to suit your environment
+	* You may have to modify `jk_init.ini` to suit your environment
 	* You must install jailkit first
 	* chroot\_dir and its all parent dir must be owned by root
 	* lang\_list can be found in jk\_init.ini
 2. Create a blank directory `shj_jail` at the root of chroot environment
-3. Set owner of `jail` be the user running php (usually http) `# chown http:http /path/to/chroot/jail`
+3. Set owner of `jail` be the user running php (usually http or nobody) `# chown http:http /path/to/chroot/jail`
 4. Set owner of `setuid_run_cmd` be root:root `# chown root:root setuid_run_cmd`
 5. Make `setuid_run_cmd` be a `setuid` program `# chmod +s setuid_run_cmd`
 
