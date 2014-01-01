@@ -64,12 +64,19 @@ class Dashboard extends CI_Controller
 			elseif ( ! is_writable($path))
 				array_push($data['errors'], 'The folder <code>"'.$path.'"</code> is not writable by PHP. Make it writable. But make sure that this folder is only accessible by you.');
 
-			// file_exists() cannot correctly determine
-			//$path = $this->settings_model->get_setting('chroot_path');
-			//if ( ! file_exists($path))
-			//	array_push($data['errors'], 'The path to the chroot environment is not set correctly. Move this folder somewhere not publicly accessible, and set its full path in Settings.');
-			//elseif ( ! is_writable($path))
-			//	array_push($data['errors'], 'The folder <code>"'.$path.'"</code> is not writable by PHP. Make it own by the user running the webserver (eg. http). But make sure that the permission of this folder is 755.');
+			$path = $this->settings_model->get_setting('chroot_path');
+			if ( ! file_exists($path))
+				array_push($data['errors'], 'The path to the chroot environment is not set correctly. Set its full path in Settings.');
+			elseif (fileowner($path) != 0)
+				array_push($data['errors'], 'The folder <code>"'.$path.'"</code> is not owned by root. Make it owned by root and make sure that the permission of this folder to 755.');
+			elseif (substr(sprintf('%o', fileperms($path)), -3) != 755)
+				array_push($data['errors'], 'The permission of folder <code>"'.$path.'"</code> is not 755. Set the permission of this folder to 755.');
+			elseif ( ! file_exists("$path/shj_jail"))
+				array_push($data['errors'], 'Please create a folder <code>"'."$path/shj_jail".', make it owned by the user running the webserver ('.trim(`whoami`).') and make sure that the permission of this folder is 755.');
+			elseif (fileowner("$path/shj_jail") != trim(`id -u`))
+				array_push($data['errors'], 'The folder <code>"'."$path/shj_jail".'"</code> is not owned by the user running the webserver ('.trim(`whoami`).'). Make it owned by the user running the webserver. But make sure that the permission of this folder is 755.');
+			elseif (substr(sprintf('%o', fileperms("$path/shj_jail")), -3) != 755)
+				array_push($data['errors'], 'The permission of folder <code>"'."$path/shj_jail".'"</code> is not 755. Set the permission of this folder to 755.');
 		}
 
 		$this->load->view('templates/header', $data);

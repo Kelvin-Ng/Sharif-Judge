@@ -1,9 +1,14 @@
 #!/bin/bash
 
 # This file runs a command with given limits
-# usage: ./runcode.sh extension memorylimit timelimit timelimit_int input_file jail command
+# usage: ./runcode.sh extension memorylimit timelimit timelimit_int input_file jail run_as_user command
 # If this code is run in chroot, <jail> should be set to a path in chroot
 # i.e. if jail is at /path/to/chroot/jail/jail-1234, please set <jail> as /jail/jail-1234
+# run_as_user MUST be a UID
+# If run_as_user = 0, code will run directly
+# If run_as_user <> 0, you should change your sudoers file and allow the user running PHP (e.g. www-data in Ubuntu+Apache) to su to another user
+# e.g. In Ubuntu (Apache running under www-data), run visudo and add this line:
+# www-data ALL=(username_of_run_as_user) NOPASSWD: ALL
 
 EXT=$1
 shift
@@ -22,6 +27,15 @@ shift
 
 JAIL=$1
 shift
+
+RUN_AS_USER=$1
+shift
+
+if [ "$RUN_AS_USER" != '0' ]; then
+	SUDO="sudo -u '#$RUN_AS_USER'"
+else
+	SUDO=""
+fi
 
 # The Command:
 CMD=$@
@@ -44,22 +58,11 @@ ulimit -t $TIMELIMITINT
 
 if $TIMEOUT_EXISTS; then
 	# Run the command with REAL time limit of TIMELIMITINT*2
-	timeout -s9 $((TIMELIMITINT*2)) $CMD <$IN >out 2>err
+	$SUDO timeout -s9 $((TIMELIMITINT*2)) $CMD <$IN >out 2>err
 else
 	# Run the command
-	$CMD <$IN >out 2>err	
+	$SUDO $CMD <$IN >out 2>err	
 fi
-# You can run submitted codes as another user:
-#
-# if $TIMEOUT_EXISTS; then
-# 	sudo -u another_user timeout -s9 $((TIMELIMITINT*2)) $CMD <$IN >out 2>err
-# else
-# 	sudo -u another_user $CMD <$IN >out 2>err	
-# fi
-#
-# But you should change your sudoers file and allow the user running PHP (e.g. www-data in Ubuntu+Apache) to su to another_user
-# e.g. In Ubuntu (Apache running under www-data), run visudo and add this line:
-# www-data ALL=(another_user) NOPASSWD: ALL
 EC=$?
 
 # KILL all processes of another_user (A process may still be alive!)

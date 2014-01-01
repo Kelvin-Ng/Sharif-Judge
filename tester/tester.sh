@@ -18,6 +18,13 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+##################### Usage #####################
+# tester.sh <problem_path> <username> <java_main_filename> <main_filename> <extension> <time_limit> <time_limit_int> <memory_limit> <output_size_limit> <diff_tool> <diff_options> <judge_log> <easysandbox> <c(pp)_shield> <py_shield> <java_policy> <run_as_user> <chroot_path>
+# If <run_as_user> is 0, untrusted code will run directly.
+# <run_as_user> MUST be a UID.
+# <run_as_user> must not 0 if chroot jail is used.
+# If <chroot_path> is blank, it will not use chroot jail and run untrusted code with user <run_as_user> (or directly). Otherwise, run untrusted code in chroot jail with user <run_as_user>.
+
 ##################### Example Usage #####################
 # tester.sh /home/mohammad/judge/homeworks/hw6/p1 mjn problem problem c 1 1 50000 1000000 diff -bB 1 1 1 0 1 1000 /shj_chroot
 # In this example judge assumes that the file is located at:
@@ -27,7 +34,6 @@
 # /home/mohammad/judge/homeworks/hw6/p1/out/ {output1.txt, output2.txt, ...}
 # The code will be run with uid 1000 in chroot environment
 # The chroot jail is located as /shj_chroot
-# If the second last parameter is 0, chroot is not used
 
 
 ####################### Output #######################
@@ -96,15 +102,22 @@ else
 	JAVA_POLICY=""
 fi
 
-# run as this uid
-RUN_UID=${17}
+# run untrusted code as this user
+RUN_AS_USER=${17}
 # enable/disable chroot
-if [ $RUN_UID = "0" ]; then
+if [ "$RUN_AS_USER" = "0" -o "$RUN_AS_USER" = "" ]; then
 	CHROOT_ON=false
+	RUN_AS_USER=0
 else
-	CHROOT_ON=true
 	# chroot to this path
 	CHROOT_PATH=${18}
+	if [ "$CHROOT_PATH" = "" ]; then
+		CHROOT_ON=false
+	else
+		RUN_AS_USER_CHROOT=$RUN_AS_USER
+		RUN_AS_USER=0
+		CHROOT_ON=true
+	fi
 fi
 
 export PATH=$PATH	# Just don't understand why this is needed, at least on my computer... -- Kelvin Ng
@@ -400,7 +413,7 @@ echo "" >$PROBLEMPATH/$UN/result.html
 PASSEDTESTS=0
 
 if $CHROOT_ON; then
-	CHROOT="sudo chroot --userspec=$RUN_UID $CHROOT_PATH"
+	CHROOT="sudo chroot --userspec=$RUN_AS_USER_CHROOT $CHROOT_PATH"
 else
 	CHROOT=""
 fi
@@ -449,9 +462,9 @@ for((i=1;i<=TST;i++)); do
 	# When chroot is off, $CHROOT $CHROOT_JAIL/runcode.sh... == $JAIL/runcode.sh as $CHROOT == "" and $CHROOT_JAIL == $JAIL
 	if [ "$EXT" = "java" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "java -mx${MEMLIMIT}k $JAVA_POLICY $MAINFILENAME"
 		fi
 		EXITCODE=$?
 		if grep -iq "Too small initial heap" out || grep -iq "java.lang.OutOfMemoryError" err; then
@@ -479,36 +492,36 @@ for((i=1;i<=TST;i++)); do
 		if $SANDBOX_ON; then
 			#LD_PRELOAD=./EasySandbox.so ./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
 			if $PERL_EXISTS; then
-				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill --sandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill --sandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
 			else
-				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "LD_PRELOAD=./EasySandbox.so ./$EXEFILE"
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "LD_PRELOAD=./EasySandbox.so ./$EXEFILE"
 			fi
 			EXITCODE=$?
 			# remove <<entering SECCOMP mode>> from beginning of output:
 			tail -n +2 out >thetemp && mv thetemp out
 		else
-			./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
+			#./$FILENAME <$PROBLEMPATH/in/input$i.txt >out 2>/dev/null
 			if $PERL_EXISTS; then
-				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT ./$EXEFILE"
 			else
-				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./$EXEFILE"
+				$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./$EXEFILE"
 			fi
 			EXITCODE=$?
 		fi
 
 	elif [ "$EXT" = "py2" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python -O $FILENAME.py"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "python -O $FILENAME.py"
 		fi
 		EXITCODE=$?
 
 	elif [ "$EXT" = "py3" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python3 -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python3 -O $FILENAME.py"
 		else
-		       $CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL "python3 -O $FILENAME.py" 2> '/home/user/Website/sharifjudge/Sharif-Judge-public/test_write_file/err'
+		       $CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "python3 -O $FILENAME.py"
 		fi
 		EXITCODE=$?
 

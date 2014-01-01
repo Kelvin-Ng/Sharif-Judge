@@ -68,6 +68,25 @@ class Settings extends CI_Controller
 	// ------------------------------------------------------------------------
 
 
+	public function check_run_as_user($user)	// form validation callback
+	{
+		$chroot_path = $this->input->post('chroot_path');
+
+		if ($user == 0 && $chroot_path == "")
+			return TRUE;
+		elseif ($user > 0)
+			return TRUE;
+		else
+		{
+			$this->form_validation->set_message('check_run_as_user', 'UID must be greater than 0 when chroot is enabled.');
+			return FALSE;
+		}
+	}
+
+
+	// ------------------------------------------------------------------------
+
+
 	public function update()
 	{
 		$this->form_validation->set_rules('timezone', 'timezone', 'required');
@@ -76,7 +95,7 @@ class Settings extends CI_Controller
 		$this->form_validation->set_rules('rpp_all', 'results per page (all submissions)', 'integer|greater_than_equal_to[0]');
 		$this->form_validation->set_rules('rpp_final', 'results per page (final submissions)', 'integer|greater_than_equal_to[0]');
 		$this->form_validation->set_rules('mail_from', 'email', 'valid_email');
-		$this->form_validation->set_rules('run_as_uid', 'Run untrusted code as UID', 'integer|greater_than_equal_to[1]');
+		$this->form_validation->set_rules('run_as_user', 'Run untrusted code as user', 'integer|callback_check_run_as_user');
 		if($this->form_validation->run()){
 			ob_start();
 			$this->form_status = 'ok';
@@ -117,8 +136,7 @@ class Settings extends CI_Controller
 					'enable_py2_shield' => $this->input->post('enable_py2_shield')===NULL?0:1,
 					'enable_py3_shield' => $this->input->post('enable_py3_shield')===NULL?0:1,
 					'enable_java_policy' => $this->input->post('enable_java_policy')===NULL?0:1,
-					'enable_chroot' => $this->input->post('enable_chroot')===NULL?0:1,
-					'run_as_uid' => $this->input->post('run_as_uid'),
+					'run_as_user' => $this->input->post('run_as_user'),
 					'chroot_path' => $this->input->post('chroot_path'),
 					'enable_log' => $this->input->post('enable_log')===NULL?0:1,
 					'enable_registration' => $this->input->post('enable_registration')===NULL?0:1,

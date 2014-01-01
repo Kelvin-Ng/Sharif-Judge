@@ -45,14 +45,14 @@ class Queueprocess extends CI_Controller
 
 		$this->settings_model->set_setting('queue_is_working', '1');
 
-		$enable_chroot = $this->settings_model->get_setting('enable_chroot');
-		if ($enable_chroot)
-		{
-			$run_as_uid = $this->settings_model->get_setting('run_as_uid');
+		$run_as_user = $this->settings_model->get_setting('run_as_user');
+		if ($run_as_user > 0)
 			$chroot_path = $this->settings_model->get_setting('chroot_path');
-		}
 		else
-			$run_as_uid = 0;	// indicate not using chroot
+		{
+			$chroot_path = '';	// indicate not using chroot
+			$run_as_user = 0;	// act as a placeholder
+		}
 
 
 		do { // loop over queue items
@@ -104,7 +104,7 @@ class Queueprocess extends CI_Controller
 			$diff_arg = $problem['diff_arg'];
 			$output_size_limit = $this->settings_model->get_setting('output_size_limit') * 1024;
 
-			$cmd = "cd $tester_path;\n./tester.sh $problemdir ".escapeshellarg($username).' '.escapeshellarg($main_filename).' '.escapeshellarg($raw_filename)." $file_type $time_limit $time_limit_int $memory_limit $output_size_limit $diff_cmd $diff_arg $op1 $op2 $op3 $op4 $op5 $run_as_uid $chroot_path";
+			$cmd = "cd $tester_path;\n./tester.sh $problemdir ".escapeshellarg($username).' '.escapeshellarg($main_filename).' '.escapeshellarg($raw_filename)." $file_type $time_limit $time_limit_int $memory_limit $output_size_limit $diff_cmd $diff_arg $op1 $op2 $op3 $op4 $op5 $run_as_user $chroot_path";
 
 			file_put_contents($userdir.'/log', $cmd);
 
