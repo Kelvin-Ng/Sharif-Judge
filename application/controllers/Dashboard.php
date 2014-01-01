@@ -72,7 +72,7 @@ class Dashboard extends CI_Controller
 			elseif (substr(sprintf('%o', fileperms($path)), -3) != 755)
 				array_push($data['errors'], 'The permission of folder <code>"'.$path.'"</code> is not 755. Set the permission of this folder to 755.');
 			elseif ( ! file_exists("$path/shj_jail"))
-				array_push($data['errors'], 'Please create a folder <code>"'."$path/shj_jail".', make it owned by the user running the webserver ('.trim(`whoami`).') and make sure that the permission of this folder is 755.');
+				array_push($data['errors'], 'Please create a folder <code>"'."$path/shj_jail".'</code>, make it owned by the user running the webserver ('.trim(`whoami`).') and make sure that the permission of this folder is 755.');
 			elseif (fileowner("$path/shj_jail") != trim(`id -u`))
 				array_push($data['errors'], 'The folder <code>"'."$path/shj_jail".'"</code> is not owned by the user running the webserver ('.trim(`whoami`).'). Make it owned by the user running the webserver. But make sure that the permission of this folder is 755.');
 			elseif (substr(sprintf('%o', fileperms("$path/shj_jail")), -3) != 755)
