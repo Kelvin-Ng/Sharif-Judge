@@ -244,7 +244,7 @@ if [ "$EXT" = "py2" ]; then
 	cd $JAIL
 	cp $PROBLEMPATH/$UN/$FILENAME.py $FILENAME.py
 	shj_log "Checking Python Syntax"
-	python -O -m py_compile $FILENAME.py >/dev/null 2>cerr
+	python2 -O -m py_compile $FILENAME.py >/dev/null 2>cerr
 	EXITCODE=$?
 	COMPILE_END_TIME=$(($(date +%s%N)/1000000));
 	shj_log "Syntax checked. Exit Code=$EXITCODE  Execution Time: $((COMPILE_END_TIME-COMPILE_BEGIN_TIME)) ms"
@@ -511,9 +511,9 @@ for((i=1;i<=TST;i++)); do
 
 	elif [ "$EXT" = "py2" ]; then
 		if $PERL_EXISTS; then
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "./timeout --just-kill -nosandbox -l $OUTLIMIT -t $TIMELIMIT -m $MEMLIMIT python2 -O $FILENAME.py"
 		else
-			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "python -O $FILENAME.py"
+			$CHROOT $CHROOT_JAIL/runcode.sh $EXT $MEMLIMIT $TIMELIMIT $TIMELIMITINT $INPUT_PATH $CHROOT_JAIL $RUN_AS_USER "python2 -O $FILENAME.py"
 		fi
 		EXITCODE=$?
 

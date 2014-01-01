@@ -32,7 +32,7 @@ RUN_AS_USER=$1
 shift
 
 if [ "$RUN_AS_USER" != '0' ]; then
-	SUDO="sudo -u '#$RUN_AS_USER'"
+	SUDO="sudo -u #$RUN_AS_USER"
 else
 	SUDO=""
 fi
